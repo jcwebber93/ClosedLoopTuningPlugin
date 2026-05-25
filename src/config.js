@@ -136,7 +136,17 @@ export let variables = [
 			dark: "#8938c9"
 		},
 		axis: "unitless"
-	},	
+	},
+	{
+		id: "pidJTerm",
+		title: "PID J Term",
+		filterValue: 1 << 15,
+		colour: {
+			light: "#ff6e6e",
+			dark: "#ff6e6e"
+		},
+		axis: "unitless"
+	},
 	{
 		id: "stepPhase",
 		title: "Measured Step Phase",
@@ -202,6 +212,16 @@ export let variables = [
 		},
 		axis: "unitless",
 		hideRecord: true,
+	},
+	{
+    id: "measuredVelocity",
+    title: "Measured Velocity",
+    filterValue: 1 << 16, // Use the same bit as in the firmware
+    colour: {
+        light: "#00bfa0",
+        dark: "#00bfa0"
+    },
+    axis: "steps", // Or a new 'velocity' axis
 	}
 ];
 

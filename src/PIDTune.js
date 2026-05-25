@@ -34,6 +34,8 @@ export default class {
       this.dTerm = 0;
       this.aTerm = 0;
       this.vTerm = 0;
+      this.jTerm = 0;
+      this.lTerm = 0;
       this.warningValue = 0;
       this.errorValue = 0;
       this.selectedDriver = driver;
@@ -59,6 +61,8 @@ export default class {
          this.dTerm = Number(queryResults.match(/D=[0-9.]+/)[0].substring(2));
          this.aTerm = Number(queryResults.match(/A=[0-9.]+/)[0].substring(2));
          this.vTerm = Number(queryResults.match(/V=[0-9.]+/)[0].substring(2));
+         this.jTerm = Number(queryResults.match(/J=[0-9.]+/)[0].substring(2));
+         this.lTerm = Number(queryResults.match(/L=[0-9.]+/)[0].substring(2));
          
          const match = /Warning\/error threshold ([0-9.]+)\/([0-9.]+)/g.exec(queryResults);
          this.warningValue = Number(match[1]);
@@ -68,7 +72,7 @@ export default class {
    
 
    async updatePID() {
-      let code = `M569.1 P${this.selectedDriver} R${this.pTerm} I${this.iTerm} D${this.dTerm} E0:0`
+      let code = `M569.1 P${this.selectedDriver} R${this.pTerm} I${this.iTerm} D${this.dTerm} A${this.aTerm} V${this.vTerm} J${this.jTerm} L${this.lTerm} E0:0`
       await this.sendCode({ code: code, log: false });
       await this.sendCode({ code: `M569.1 P${this.selectedDriver}`, log: false });
    }

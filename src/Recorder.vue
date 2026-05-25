@@ -30,6 +30,9 @@
                         <v-text-field label="V Value" numeric v-model="vTerm"></v-text-field>
                      </v-col>
                      <v-col cols="4">
+                        <v-text-field label="J Value" numeric v-model="jTerm"></v-text-field>
+                     </v-col>
+                     <v-col cols="4">
                         <v-btn type="submit" :loading="updatingPIDValue">Update</v-btn>
                      </v-col>
                   </v-row>
@@ -182,6 +185,7 @@ export default {
       dTerm: 0,
       aTerm: 0,
       vTerm: 0,
+      jTerm: 0,
       updatingPIDValue: false,
       autoTuning: false,
       autoTuner: null,
@@ -251,10 +255,10 @@ export default {
          return term != '' && term >= 0;
       },
       async updatePID() {
-         if (this.checkTerm(this.pTerm) && this.checkTerm(this.iTerm) && this.checkTerm(this.dTerm)) {
+         if (this.checkTerm(this.pTerm) && this.checkTerm(this.iTerm) && this.checkTerm(this.dTerm) && this.checkTerm(this.aTerm) && this.checkTerm(this.vTerm) && this.checkTerm(this.jTerm)) {
             try {
                this.updatingPIDValue = true;
-               await this.sendCode({ code: `M569.1 P${this.selectedDriver}  R${this.pTerm} I${this.iTerm} D${this.dTerm} A${this.aTerm} V${this.vTerm}`, log: true });
+               await this.sendCode({ code: `M569.1 P${this.selectedDriver}  R${this.pTerm} I${this.iTerm} D${this.dTerm} A${this.aTerm} V${this.vTerm} J${this.jTerm}`, log: true });
             } finally {
                this.updatingPIDValue = false;
             }
@@ -375,6 +379,7 @@ export default {
                this.dTerm = 0;
                this.aTerm = 0;
                this.vTerm = 0;
+               this.jTerm = 0;
                var queryResults = await this.sendCode({ code: `M569.1 P${to}`, log: false, fromInput: false });
                if (queryResults) {
                   this.pTerm = queryResults.match(/P=[0-9.]+/)[0].substring(2);
@@ -382,6 +387,7 @@ export default {
                   this.dTerm = queryResults.match(/D=[0-9.]+/)[0].substring(2);
                   this.aTerm = queryResults.match(/A=[0-9.]+/)[0].substring(2);
                   this.vTerm = queryResults.match(/V=[0-9.]+/)[0].substring(2);
+                  this.jTerm = queryResults.match(/J=[0-9.]+/)[0].substring(2);
                }
 
                let selectedAxis = this.axes.filter((axis) => axis.drivers.some((driver) => `${driver.board}.${driver.driver}` === this.selectedDriver));
