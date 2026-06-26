@@ -210,6 +210,10 @@ export default {
          }
       },
       async record(force = false) {
+         if (this.axisParams === null) {
+            this.error = 'No axis parameters available for this driver.';
+            return;
+         }
          this.recording = true;
 
          //Capture original acceleration
@@ -367,7 +371,7 @@ export default {
          return `M569.5 ${pString} ${sString} ${aString} ${rString} ${dString} V0`;
       },
       ready() {
-         return this.selectedDriver !== null && this.selectedVariables.length > 0;
+         return this.selectedDriver !== null && this.selectedVariables.length > 0 && this.axisParams !== null;
       }
    },
    watch: {
@@ -396,7 +400,20 @@ export default {
                   this.moveAcceleration = selectedAxis.acceleration;
                   this.axisParams = new AxisParameters(selectedAxis.letter, selectedAxis.acceleration, selectedAxis.speed, selectedAxis.stepsPerMm, selectedAxis.microstepping.value);
                } else {
-                  this.axisParams = null;
+                  let selectedExtruder = null;
+                  let extruderLetter = null;
+                  this.extruders.forEach((extruder, idx) => {
+                     if (`${extruder.driver.board}.${extruder.driver.driver}` === this.selectedDriver) {
+                        selectedExtruder = extruder;
+                        extruderLetter = `E${idx}`;
+                     }
+                  });
+                  if (selectedExtruder !== null) {
+                     this.moveAcceleration = selectedExtruder.acceleration;
+                     this.axisParams = new AxisParameters(extruderLetter, selectedExtruder.acceleration, selectedExtruder.speed, selectedExtruder.stepsPerMm, selectedExtruder.microstepping.value);
+                  } else {
+                     this.axisParams = null;
+                  }
                }
             } catch (e) {
                console.log(e);
