@@ -1,0 +1,7 @@
+{
+	"name": "closed-loop-tuning",
+	"private": true,
+	"dependencies": {
+		"chart.js": "^4.5.1"
+	}
+}

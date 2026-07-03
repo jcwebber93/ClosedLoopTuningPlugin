@@ -15,7 +15,7 @@
 				:label="variable.title"
 				:value="variable"
 				:disabled="!availableVariables.includes(variable.title)"
-				:color="darkTheme ?  variable.colour.dark : variable.colour.light"
+				:color="settingsStore.darkTheme ? variable.colour.dark : variable.colour.light"
 			/>
 		</v-card-text>
 
@@ -24,50 +24,33 @@
 		<v-card-actions class="d-flex">
 			<v-btn color="darken-1" @click="selectAll">All</v-btn>
 			<v-spacer/>
-			<v-btn color="darken-1" @click="selectedVariables=[]">None</v-btn>
+			<v-btn color="darken-1" @click="selectedVariables = []">None</v-btn>
 		</v-card-actions>
 	</v-card>
 </template>
 
-<script>
-'use strict'
+<script setup lang="ts">
+import { computed, watch } from "vue";
 
-import { variables } from './config.js'
-import { mapState } from 'vuex'
+import { useSettingsStore } from "@/stores/settings";
 
-export default {
-	data: () => ({
-		variables,
-		selectedVariables: []
-	}),
-	props: {
-		value: Array,
-		availableVariables: Array,
-	},
-	mounted() {
-		this.selectedVariables = this.value;
-	},
-	computed: {
-		...mapState('settings', ['darkTheme']),
-		chartableVariables() {
-			return this.variables.filter(variable => !variable.hideSelect);
-		}
-	},
-	watch: {
-		value() {
-			this.selectedVariables = this.value;
-		},
-		availableVariables() {
-			this.selectedVariables = this.selectedVariables.filter(variable => this.availableVariables.includes(variable.title));
-		},
-		selectedVariables() {
-			this.$emit("input", this.selectedVariables);
-		}
-	},
-	methods: {
-		selectAll() {
-			this.selectedVariables = this.variables.filter(variable => this.availableVariables.includes(variable.title));
-		}
-	}
+import { variables } from "./config";
+
+const props = defineProps<{
+	availableVariables: Array<string>;
+}>();
+
+const settingsStore = useSettingsStore();
+
+const selectedVariables = defineModel<Array<typeof variables[number]>>({ required: true });
+
+const chartableVariables = computed(() => variables.filter(variable => !variable.hideSelect));
+
+watch(() => props.availableVariables, () => {
+	selectedVariables.value = selectedVariables.value.filter(variable => props.availableVariables.includes(variable.title));
+});
+
+function selectAll() {
+	selectedVariables.value = variables.filter(variable => props.availableVariables.includes(variable.title));
 }
 </script>

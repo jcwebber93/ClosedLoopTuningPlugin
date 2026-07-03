@@ -6,29 +6,26 @@
          <v-spacer />
          <v-icon class="ml-2" @click="refresh">mdi-refresh</v-icon>
          <v-icon v-if="!isDeleting" class="ml-2" @click="deleteDialog = true">mdi-delete</v-icon>
-         <v-progress-circular  class="disable-transition ml-2" size="24" v-else :value="deleteProgress"></v-progress-circular>
+         <v-progress-circular class="disable-transition ml-2" size="24" v-else :model-value="deleteProgress"></v-progress-circular>
       </v-card-title>
 
       <v-card-text class="pb-0">
          <v-list dense :v-if="!loading">
             <div v-if="files.length > 200" class="w-full error--text text-center mb-3">
-               Warning: You have {{ this.files.length }} data files<br />
+               Warning: You have {{ files.length }} data files<br />
                You may wish to delete some to save space
             </div>
-            <v-list-item-group v-model="selectedIndex" color="primary">
-               <v-list-item v-for="(file, index) in displayedFiles" :key="file.name" :value="index">
-                  <v-list-item-content>
-                     <v-list-item-title>
-                        <div class="mt-1 float-left">
-                           {{ file.name }}
-                        </div>
-                        <v-icon class="ml-2 float-right" @click.stop="deleteFile(file.name)">mdi-delete</v-icon>
-                     </v-list-item-title>
-                  </v-list-item-content>
-               </v-list-item>
-            </v-list-item-group>
+            <v-list-item v-for="(file, index) in displayedFiles" :key="file.name" :value="index"
+                         :active="selectedIndex === index" color="primary" @click="selectedIndex = index">
+               <v-list-item-title>
+                  <div class="mt-1 float-left">
+                     {{ file.name }}
+                  </div>
+                  <v-icon class="ml-2 float-right" @click.stop="deleteFile(file.name)">mdi-delete</v-icon>
+               </v-list-item-title>
+            </v-list-item>
          </v-list>
-         <v-dialog :value="deleteDialog" width="480" persistent>
+         <v-dialog :model-value="deleteDialog" width="480" persistent>
             <v-card>
                <v-card-title> Delete All Files </v-card-title>
                <v-card-text> Are you sure you want to delete all CSV files? </v-card-text>
@@ -43,7 +40,7 @@
       <v-spacer />
 
       <v-card-actions>
-         <v-pagination v-model="page" :length="Math.ceil(files.length / maxFileDisplay)" :total-visible="Math.ceil(files.length / maxFileDisplay) > 4 ? 5 : null" class="mx-auto" />
+         <v-pagination v-model="page" :length="Math.ceil(files.length / maxFileDisplay)" :total-visible="Math.ceil(files.length / maxFileDisplay) > 4 ? 5 : undefined" class="mx-auto" />
       </v-card-actions>
    </v-card>
 </template>
@@ -57,114 +54,96 @@
 }
 </style>
 
-<script>
-'use strict';
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from "vue";
 
-import { mapGetters, mapActions } from 'vuex';
+import { useMachineStore } from "@/stores/machine";
+import { useUiStore } from "@/stores/ui";
+import i18n from "@/i18n";
+import Path from "@/utils/path";
 
-import Path from '../../utils/path'
+const emit = defineEmits<{
+   fileSelect: [file: string | null];
+}>();
 
-export default {
-   data: () => ({
-      page: 1,
-      files: [],
-      loading: false,
-      selectedIndex: -1,
-      maxFileDisplay: 13,
-      deleteDialog: false,
-      isDeleting: false,
-      deleteProgress: 0
-   }),
-   computed: {
-      ...mapGetters(['isConnected', 'uiFrozen']),
-      displayedFiles() {
-         return this.files.slice((this.page - 1) * this.maxFileDisplay, this.page * this.maxFileDisplay);
-      }
-   },
-   mounted() {
-      this.refresh();
-      this.$root.$on('updatePIDGraph', () => {
-         this.selectMostRecentFile();
-      });
-   },
-   unmounted() {
-      this.$root.$off('updatePIDGraph');
-   },
-   methods: {
-      ...mapActions('machine', {
-         getFileList: 'getFileList',
-         machineDelete: 'delete'
-      }),
-      async refresh() {
-         if (!this.isConnected) {
-            this.selectedIndex = -1;
-            this.files = [];
-            return;
-         }
+const machineStore = useMachineStore();
+const uiStore = useUiStore();
 
-         if (this.loading) {
-            // Don't do multiple actions at once
-            return;
-         }
+const page = ref(1);
+const files = ref<Array<{ name: string; isDirectory: boolean; lastModified: Date | null }>>([]);
+const loading = ref(false);
+const selectedIndex = ref(-1);
+const maxFileDisplay = 13;
+const deleteDialog = ref(false);
+const isDeleting = ref(false);
+const deleteProgress = ref(0);
 
-         this.selectedIndex = -1;
-         this.loading = true;
-         try {
-            this.files = (await this.getFileList(Path.closedLoop)).filter((file) => !file.isDirectory && file.name.endsWith('.csv')).sort((a, b) => b.lastModified - a.lastModified);
-         } finally {
-            this.loading = false;
-         }
-      },
-      async selectMostRecentFile() {
-         await this.refresh();
-         this.page = 1;
-         this.selectedIndex = 0;
-      },
-      async deleteFile(fileName) {
-         try {
-            await this.machineDelete(Path.combine(Path.closedLoop, fileName));
-            await this.refresh();
-         } catch (e) {
-            this.$makeNotification('error', this.$t('notification.delete.errorTitle', [fileName]), e.message);
-         }
-      },
-      async deletePage() {
-         for (let i = (this.page - 1) * this.maxFileDisplay; i < this.page * this.maxFileDisplay; i++) {
-            if (i >= this.files.length) {
-               continue;
-            }
+const displayedFiles = computed(() => files.value.slice((page.value - 1) * maxFileDisplay, page.value * maxFileDisplay));
 
-            try {
-               await this.machineDelete(Path.combine(Path.closedLoop, this.files[i].name));
-            } catch (e) {
-               this.$makeNotification('error', this.$t('notification.delete.errorTitle', [this.files[i].name]), e.message);
-            }
-         }
-         await this.refresh();
-      },
-      async deleteAll() {
-         try {
-            this.deleteDialog = false;
-            this.isDeleting = true;
-            for (let i = 0; i < this.files.length; i++) {
-               try {
-                  this.deleteProgress = (i / this.files.length) * 100;
-                  await this.machineDelete(Path.combine(Path.closedLoop, this.files[i].name));
-               } catch (e) {
-                  this.$makeNotification('error', this.$t('notification.delete.errorTitle', [this.files[i].name]), e.message);
-               }
-            }
-            await this.refresh();
-         } finally {
-            this.isDeleting = false;
-            this.deleteProgress = 0;
-         }
-      }
-   },
-   watch: {
-      selectedIndex(to) {
-         this.$emit('fileSelect', to >= 0 && to < this.files.length ? Path.combine(Path.closedLoop, this.files[to].name) : null);
-      }
+async function refresh() {
+   if (!machineStore.isConnected) {
+      selectedIndex.value = -1;
+      files.value = [];
+      return;
    }
-};
+
+   if (loading.value) {
+      // Don't do multiple actions at once
+      return;
+   }
+
+   selectedIndex.value = -1;
+   loading.value = true;
+   try {
+      files.value = (await machineStore.getFileList(Path.closedLoop))
+         .filter((file) => !file.isDirectory && file.name.endsWith(".csv"))
+         .sort((a, b) => (b.lastModified?.getTime() ?? 0) - (a.lastModified?.getTime() ?? 0));
+   } finally {
+      loading.value = false;
+   }
+}
+
+async function selectMostRecentFile() {
+   await refresh();
+   page.value = 1;
+   selectedIndex.value = 0;
+}
+
+async function deleteFile(fileName: string) {
+   try {
+      await machineStore.delete(Path.combine(Path.closedLoop, fileName));
+      await refresh();
+   } catch (e) {
+      uiStore.notifyError(e, i18n.global.t("notification.delete.errorTitle", [fileName]));
+   }
+}
+
+async function deleteAll() {
+   try {
+      deleteDialog.value = false;
+      isDeleting.value = true;
+      for (let i = 0; i < files.value.length; i++) {
+         try {
+            deleteProgress.value = (i / files.value.length) * 100;
+            await machineStore.delete(Path.combine(Path.closedLoop, files.value[i].name));
+         } catch (e) {
+            uiStore.notifyError(e, i18n.global.t("notification.delete.errorTitle", [files.value[i].name]));
+         }
+      }
+      await refresh();
+   } finally {
+      isDeleting.value = false;
+      deleteProgress.value = 0;
+   }
+}
+
+watch(selectedIndex, (to) => {
+   emit("fileSelect", to >= 0 && to < files.value.length ? Path.combine(Path.closedLoop, files.value[to].name) : null);
+});
+
+onMounted(() => {
+   refresh();
+});
+
+defineExpose({ selectMostRecentFile });
 </script>
